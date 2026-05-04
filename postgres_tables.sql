@@ -1,229 +1,147 @@
--- Create Languages Table
-CREATE TABLE languages (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  code VARCHAR(5) NOT NULL UNIQUE,
-  name VARCHAR(50) NOT NULL,
-  name_native VARCHAR(50) NOT NULL,
-  flag_icon_url TEXT 
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE listenly_app.app_genres (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  name character varying NOT NULL UNIQUE,
+  icon_url text,
+  CONSTRAINT app_genres_pkey PRIMARY KEY (id)
 );
-
--- Create Levels Table
-CREATE TABLE levels (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  label VARCHAR(50) NOT NULL UNIQUE
+CREATE TABLE listenly_app.app_languages (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  code character varying NOT NULL UNIQUE,
+  name character varying NOT NULL,
+  name_native character varying NOT NULL,
+  flag_icon_url text,
+  is_for_learning boolean NOT NULL DEFAULT false,
+  is_for_display boolean NOT NULL DEFAULT true,
+  CONSTRAINT app_languages_pkey PRIMARY KEY (id)
 );
-
--- Create Genres Table
-CREATE TABLE genres (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  name VARCHAR(100) NOT NULL UNIQUE,
-  icon_url TEXT
+CREATE TABLE listenly_app.app_levels (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  label character varying NOT NULL UNIQUE,
+  CONSTRAINT app_levels_pkey PRIMARY KEY (id)
 );
-
--- Create Stories Table
-CREATE TABLE stories_lessons (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  title VARCHAR(255) NOT NULL,
-  description TEXT,
-  cover_image_url TEXT, 
-  level_id UUID REFERENCES levels(id) ON DELETE SET NULL,
-  target_lang_id UUID REFERENCES languages(id) ON DELETE CASCADE,
-  genre_id UUID REFERENCES genres(id) ON DELETE SET NULL,
-  audio_mka_url TEXT NOT NULL,
-  author_name VARCHAR(255),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+CREATE TABLE listenly_app.app_user_settings (
+  user_id uuid NOT NULL,
+  theme_mode text DEFAULT 'system'::text,
+  ui_language_code text DEFAULT 'en-US'::text,
+  learning_language_code text DEFAULT 'en-US'::text,
+  notifications_enabled boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT app_user_settings_pkey PRIMARY KEY (user_id),
+  CONSTRAINT app_user_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-
--- Create Podcasts Table
-CREATE TABLE podcast_lessons (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  title VARCHAR(255) NOT NULL,
-  description TEXT,
-  cover_image_url TEXT, 
-  level_id UUID REFERENCES levels(id) ON DELETE SET NULL,
-  target_lang_id UUID REFERENCES languages(id) ON DELETE CASCADE,
-  genre_id UUID REFERENCES genres(id) ON DELETE SET NULL,
-  audio_mka_url TEXT NOT NULL,
-  host_name VARCHAR(255) NOT NULL,
-  guest_name VARCHAR(255),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+CREATE TABLE listenly_app.error_action_policies (
+  error_type USER-DEFINED NOT NULL,
+  should_deactivate boolean NOT NULL DEFAULT false,
+  CONSTRAINT error_action_policies_pkey PRIMARY KEY (error_type)
 );
-
--- Create Conversations Table
-CREATE TABLE conversations_lessons (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  title VARCHAR(255) NOT NULL,
-  description TEXT,
-  cover_image_url TEXT, 
-  level_id UUID REFERENCES levels(id) ON DELETE SET NULL,
-  target_lang_id UUID REFERENCES languages(id) ON DELETE CASCADE,
-  genre_id UUID REFERENCES genres(id) ON DELETE SET NULL,
-  scenario_type VARCHAR(255),
-  speaker_one_name VARCHAR(100) NOT NULL,
-  speaker_two_name VARCHAR(100) NOT NULL,
-  participants_count INTEGER DEFAULT 2,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+CREATE TABLE listenly_app.error_exceptions (
+  lesson_id integer NOT NULL,
+  lesson_type USER-DEFINED NOT NULL,
+  error_type USER-DEFINED NOT NULL,
+  CONSTRAINT error_exceptions_pkey PRIMARY KEY (lesson_id, lesson_type, error_type),
+  CONSTRAINT error_exceptions_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES listenly_app.lessons(id)
 );
-
--- ==========================================
--- Translations Tables
--- ==========================================
-
--- Create Genre Info Translations Table
-CREATE TABLE genres_info_translations (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  genre_id UUID NOT NULL REFERENCES genres(id) ON DELETE CASCADE,
-  language_id UUID NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
-  translated_name VARCHAR(100) NOT NULL,
-  UNIQUE(genre_id, language_id)
+CREATE TABLE listenly_app.genres_info_translations (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  genre_name character varying NOT NULL,
+  language_code character varying NOT NULL,
+  translated_name character varying NOT NULL,
+  CONSTRAINT genres_info_translations_pkey PRIMARY KEY (id),
+  CONSTRAINT genres_info_translations_genre_name_fkey FOREIGN KEY (genre_name) REFERENCES listenly_app.app_genres(name),
+  CONSTRAINT genres_info_translations_language_code_fkey FOREIGN KEY (language_code) REFERENCES listenly_app.app_languages(code)
 );
-
--- Create Story Lessons Info Translations Table
-CREATE TABLE stories_lessons_info_translations (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  story_id UUID NOT NULL REFERENCES stories_lessons(id) ON DELETE CASCADE,
-  language_id UUID NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
-  translated_title VARCHAR(255) NOT NULL,
-  translated_description TEXT,
-  UNIQUE(story_id, language_id)
+CREATE TABLE listenly_app.global_dictionary (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  target_lang_code character varying NOT NULL,
+  native_lang_code character varying NOT NULL,
+  target_word character varying NOT NULL,
+  translated_word character varying NOT NULL,
+  CONSTRAINT global_dictionary_pkey PRIMARY KEY (id),
+  CONSTRAINT global_dictionary_target_lang_code_fkey FOREIGN KEY (target_lang_code) REFERENCES listenly_app.app_languages(code),
+  CONSTRAINT global_dictionary_native_lang_code_fkey FOREIGN KEY (native_lang_code) REFERENCES listenly_app.app_languages(code)
 );
-
--- Create Podcast Lessons Info Translations Table
-CREATE TABLE podcast_lessons_info_translations (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  podcast_id UUID NOT NULL REFERENCES podcast_lessons(id) ON DELETE CASCADE,
-  language_id UUID NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
-  translated_title VARCHAR(255) NOT NULL,
-  translated_description TEXT,
-  UNIQUE(podcast_id, language_id)
+CREATE TABLE listenly_app.lessons (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  lesson_type USER-DEFINED NOT NULL,
+  title character varying NOT NULL,
+  subtitle text,
+  cover_image_url text,
+  level_label character varying,
+  target_lang_code character varying,
+  genre_name character varying,
+  scenario_type character varying,
+  speaker_one_name character varying,
+  speaker_two_name character varying,
+  participants_count integer DEFAULT 1,
+  audio_file_url text,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT lessons_pkey PRIMARY KEY (id),
+  CONSTRAINT lessons_level_label_fkey FOREIGN KEY (level_label) REFERENCES listenly_app.app_levels(label),
+  CONSTRAINT lessons_target_lang_code_fkey FOREIGN KEY (target_lang_code) REFERENCES listenly_app.app_languages(code),
+  CONSTRAINT lessons_genre_name_fkey FOREIGN KEY (genre_name) REFERENCES listenly_app.app_genres(name)
 );
-
--- Create Conversation Lessons Info Translations Table
-CREATE TABLE conversations_lessons_info_translations (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  conversation_id UUID NOT NULL REFERENCES conversations_lessons(id) ON DELETE CASCADE,
-  language_id UUID NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
-  translated_title VARCHAR(255) NOT NULL,
-  translated_description TEXT,
-  UNIQUE(conversation_id, language_id)
+CREATE TABLE listenly_app.lessons_favorites (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  user_id uuid NOT NULL,
+  lesson_id integer NOT NULL,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT lessons_favorites_pkey PRIMARY KEY (id),
+  CONSTRAINT lessons_favorites_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT lessons_favorites_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES listenly_app.lessons(id)
 );
-
--- ==========================================
--- Favorites Tables
--- ==========================================
-
--- Create Favorites Table for Stories
-CREATE TABLE stories_lessons_favorites (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, 
-  story_id UUID NOT NULL REFERENCES stories_lessons(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-  UNIQUE(user_id, story_id)
+CREATE TABLE listenly_app.lessons_info_translations (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  lesson_id integer NOT NULL,
+  language_code character varying NOT NULL,
+  translated_title character varying NOT NULL,
+  translated_subtitle text,
+  CONSTRAINT lessons_info_translations_pkey PRIMARY KEY (id),
+  CONSTRAINT lessons_info_translations_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES listenly_app.lessons(id),
+  CONSTRAINT lessons_info_translations_language_code_fkey FOREIGN KEY (language_code) REFERENCES listenly_app.app_languages(code)
 );
-
--- Create Favorites Table for Podcasts
-CREATE TABLE podcast_lessons_favorites (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, 
-  podcast_id UUID NOT NULL REFERENCES podcast_lessons(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-  UNIQUE(user_id, podcast_id)
+CREATE TABLE listenly_app.lessons_progress (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  user_id uuid NOT NULL,
+  lesson_id integer NOT NULL,
+  position_ms integer DEFAULT 0,
+  is_completed boolean DEFAULT false,
+  completed_at timestamp with time zone,
+  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+  total_duration_ms integer DEFAULT 0,
+  CONSTRAINT lessons_progress_pkey PRIMARY KEY (id),
+  CONSTRAINT lessons_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT lessons_progress_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES listenly_app.lessons(id)
 );
-
--- Create Favorites Table for Conversations
-CREATE TABLE conversations_lessons_favorites (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, 
-  conversation_id UUID NOT NULL REFERENCES conversations_lessons(id) ON DELETE CASCADE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-  UNIQUE(user_id, conversation_id)
+CREATE TABLE listenly_app.lessons_srt_subtitles (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  lesson_id integer NOT NULL,
+  language_code character varying NOT NULL,
+  srt_file_url text NOT NULL,
+  CONSTRAINT lessons_srt_subtitles_pkey PRIMARY KEY (id),
+  CONSTRAINT lessons_srt_subtitles_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES listenly_app.lessons(id),
+  CONSTRAINT lessons_srt_subtitles_language_code_fkey FOREIGN KEY (language_code) REFERENCES listenly_app.app_languages(code)
 );
-
--- ==========================================
--- Progress Tracking Tables
--- ==========================================
-
--- Create Progress Table for Stories
-CREATE TABLE stories_lessons_progress (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  story_id UUID NOT NULL REFERENCES stories_lessons(id) ON DELETE CASCADE,
-  position_ms INTEGER DEFAULT 0,
-  is_completed BOOLEAN DEFAULT FALSE,
-  completed_at TIMESTAMP WITH TIME ZONE,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-  UNIQUE(user_id, story_id)
+CREATE TABLE listenly_app.lessons_vocabulary (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  lesson_id integer NOT NULL,
+  word character varying NOT NULL,
+  CONSTRAINT lessons_vocabulary_pkey PRIMARY KEY (id),
+  CONSTRAINT lessons_vocabulary_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES listenly_app.lessons(id)
 );
-
--- Create Progress Table for Podcasts
-CREATE TABLE podcast_lessons_progress (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  podcast_id UUID NOT NULL REFERENCES podcast_lessons(id) ON DELETE CASCADE,
-  position_ms INTEGER DEFAULT 0,
-  is_completed BOOLEAN DEFAULT FALSE,
-  completed_at TIMESTAMP WITH TIME ZONE,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-  UNIQUE(user_id, podcast_id)
+CREATE TABLE listenly_app.media_error_logs (
+  lesson_id integer NOT NULL,
+  lesson_type USER-DEFINED NOT NULL,
+  error_type USER-DEFINED NOT NULL,
+  error_details text,
+  created_at timestamp with time zone DEFAULT now(),
+  resolved_at timestamp with time zone,
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  CONSTRAINT media_error_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT media_error_logs_lesson_id_fkey FOREIGN KEY (lesson_id) REFERENCES listenly_app.lessons(id)
 );
-
--- Create Progress Table for Conversations
-CREATE TABLE conversations_lessons_progress (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  conversation_id UUID NOT NULL REFERENCES conversations_lessons(id) ON DELETE CASCADE,
-  position_ms INTEGER DEFAULT 0,
-  is_completed BOOLEAN DEFAULT FALSE,
-  completed_at TIMESTAMP WITH TIME ZONE,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
-  UNIQUE(user_id, conversation_id)
-);
-
--- ==========================================
--- Vocabulary & Dictionary Tables
--- ==========================================
-
--- Create Central Global Dictionary Table
-CREATE TABLE global_dictionary (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  target_lang_id UUID NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
-  native_lang_id UUID NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
-  target_word VARCHAR(255) NOT NULL,
-  translated_word VARCHAR(255) NOT NULL,
-  
-  -- Prevent duplicate translations for the same word between two specific languages
-  UNIQUE(target_lang_id, native_lang_id, target_word)
-);
-
--- Create Vocabulary Table for Stories
-CREATE TABLE stories_lessons_vocabulary (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  story_id UUID NOT NULL REFERENCES stories_lessons(id) ON DELETE CASCADE,
-  word VARCHAR(255) NOT NULL,
-  UNIQUE(story_id, word)
-);
-
--- Create Vocabulary Table for Podcasts
-CREATE TABLE podcast_lessons_vocabulary (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  podcast_id UUID NOT NULL REFERENCES podcast_lessons(id) ON DELETE CASCADE,
-  word VARCHAR(255) NOT NULL,
-  UNIQUE(podcast_id, word)
-);
-
--- Create Vocabulary Table for Conversations
-CREATE TABLE conversations_lessons_vocabulary (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  conversation_id UUID NOT NULL REFERENCES conversations_lessons(id) ON DELETE CASCADE,
-  word VARCHAR(255) NOT NULL,
-  UNIQUE(conversation_id, word)
-);
-
-
-
-
-
-
-
-
-
